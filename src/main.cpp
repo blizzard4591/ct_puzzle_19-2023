@@ -445,13 +445,61 @@ inline std::size_t makeKey(std::size_t const& pos, unsigned long const& presentS
 	return (pos << 32uLL) | (presentState & 0xFFFFFFFFuLL);
 }
 
-std::unordered_set<std::size_t> knownPositions;
+bool is_b_subset_of_a(unsigned long const& a, unsigned long const& b) noexcept(true) {
+	return (b & ~a) == 0ul;
+}
+
+std::vector<std::unordered_set<unsigned long>> knownPositions;
 bool hasSeenPosition(std::size_t const& pos, std::bitset<32> const& presentState) {
-	return knownPositions.find(makeKey(pos, presentState.to_ulong())) != knownPositions.cend();
+	std::unordered_set<unsigned long> const& set = knownPositions[pos];
+	auto const newState = presentState.to_ulong();
+	if (set.find(newState) != set.cend()) {
+		return true;
+	}
+	
+	for (auto it = set.cbegin(); it != set.cend(); ++it) {
+		auto const& knownState = *it;
+		if (is_b_subset_of_a(newState, knownState)) {
+			return true;
+		}
+	}
+	return false;
 }
 
 inline void addPosition(std::size_t const& pos, std::bitset<32> const& presentState) {
-	knownPositions.insert(makeKey(pos, presentState.to_ulong()));
+	knownPositions[pos].insert(presentState.to_ulong());
+}
+
+void cleanupKnownPositions() {
+	auto const beginTotal = std::chrono::steady_clock::now();
+
+	std::size_t removalCount = 0;
+	std::size_t totalCount = 0;
+	for (auto itO = knownPositions.begin(); itO != knownPositions.end(); ++itO) {
+		std::unordered_set<unsigned long>& set = *itO;
+		totalCount += set.size();
+		if (set.size() < 2) {
+			continue;
+		}
+
+		for (auto it = set.begin(); it != set.end(); ++it) {
+			auto const& knownState = *it;
+			for (auto it2 = set.begin(); it2 != set.end(); ++it2) {
+				auto const& otherState = *it;
+				if (knownState == otherState) {
+					continue;
+				}
+				if (is_b_subset_of_a(knownState, otherState)) {
+					it = set.erase(it);
+					++removalCount;
+					break;
+				}
+			}
+		}
+	}
+
+	auto const endIterate = std::chrono::steady_clock::now();
+	std::cout << "Removed " << removalCount << " entries in cleanup round taking " << std::chrono::duration_cast<std::chrono::microseconds>(endIterate - beginTotal).count() << "us - " << totalCount << " entries (" << (totalCount / knownPositions.size()) << " avg.)." << std::endl;
 }
 
 template<std::size_t NUM_ROWS, std::size_t NUM_COLS, bool IS_TORUS>
@@ -461,13 +509,25 @@ void play(std::array<std::string, NUM_ROWS> const& fieldString, std::vector<std:
 	PresentOverlay<NUM_ROWS, NUM_COLS> presentOverlay = init.second;
 
 	std::queue<QueueObject> penguinPositions;
+	
 	knownPositions.clear();
+	for (std::size_t i = 0; i < NUM_ROWS * NUM_COLS; ++i) {
+		knownPositions.push_back(std::unordered_set<unsigned long>());
+	}
+
 	addPosition(board.getPenguinStartingPosition(), presentOverlay.getRepresentation());
 	penguinPositions.push(QueueObject(board.getPenguinStartingPosition(), presentOverlay.getRepresentation()));
 
 	std::size_t newPos;
 	std::size_t target;
+
+	std::size_t roundCounter = 0;
 	while (!penguinPositions.empty()) {
+		++roundCounter;
+		if (roundCounter % 100000 == 0) {
+			cleanupKnownPositions();
+		}
+
 		QueueObject const& p = penguinPositions.front();
 
 		if (board.getPieceAt(p.getPos()) == BoardPiece::TARGET) {
