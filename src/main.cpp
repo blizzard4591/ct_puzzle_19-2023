@@ -163,9 +163,7 @@ public:
 		}
 		std::size_t const mappedIndex = m_presentBase.getBitmapIndex(pos);
 		if (mappedIndex < 32) {
-			if (m_presents[mappedIndex]) {
-				m_presents[pos] = false;
-			}
+			m_presents[mappedIndex] = false;
 		}
 	}
 
@@ -341,7 +339,7 @@ public:
 				break;
 			}
 		}
-		return swapHoleIfOn(result);
+		return swapHoleIfOn(pos);
 	}
 
 	std::size_t moveDown(std::size_t pos, PresentOverlay<NUM_ROWS, NUM_COLS>& presents) const {
@@ -414,11 +412,11 @@ private:
 
 class QueueObject {
 public:
-	QueueObject(std::size_t const& penguinPosition, std::bitset<32> const& presentState) : m_pos(penguinPosition), m_presentState(presentState), m_moves(""), m_knownPositions({ penguinPosition }) {
+	QueueObject(std::size_t const& penguinPosition, std::bitset<32> const& presentState) : m_pos(penguinPosition), m_presentState(presentState), m_moves("") {
 		//
 	}
 
-	QueueObject(std::size_t const& pos, std::bitset<32> const& presentState, std::string&& moves, std::unordered_set<std::size_t>&& knownPositions) : m_pos(pos), m_presentState(presentState), m_moves(moves), m_knownPositions(knownPositions) {
+	QueueObject(std::size_t const& pos, std::bitset<32> const& presentState, std::string&& moves) : m_pos(pos), m_presentState(presentState), m_moves(moves) {
 		//
 	}
 
@@ -434,25 +432,27 @@ public:
 		return m_moves;
 	}
 
-	inline std::size_t makeKey(std::size_t const& pos, unsigned long const& presentState) const noexcept(true) {
-		return (pos << 32) | (presentState & 0xFFFFFFFFuLL);
-	}
-
-	bool hasSeenPosition(std::size_t const& pos, std::bitset<32> const& presentState) const {
-		return m_knownPositions.find(makeKey(pos, presentState.to_ulong())) != m_knownPositions.cend();
-	}
-
 	QueueObject moveTo(std::size_t const& newPos, std::bitset<32> const& presentState, char direction) const {
-		std::unordered_set<std::size_t> knownPositions = m_knownPositions;
-		knownPositions.insert(makeKey(newPos, presentState.to_ulong()));
-		return QueueObject(newPos, presentState, m_moves + direction, std::move(knownPositions));
+		return QueueObject(newPos, presentState, m_moves + direction);
 	}
 private:
 	std::size_t const m_pos;
 	std::bitset<32> const m_presentState;
 	std::string const m_moves;
-	std::unordered_set<std::size_t> const m_knownPositions;
 };
+
+inline std::size_t makeKey(std::size_t const& pos, unsigned long const& presentState) noexcept(true) {
+	return (pos << 32uLL) | (presentState & 0xFFFFFFFFuLL);
+}
+
+std::unordered_set<std::size_t> knownPositions;
+bool hasSeenPosition(std::size_t const& pos, std::bitset<32> const& presentState) {
+	return knownPositions.find(makeKey(pos, presentState.to_ulong())) != knownPositions.cend();
+}
+
+inline void addPosition(std::size_t const& pos, std::bitset<32> const& presentState) {
+	knownPositions.insert(makeKey(pos, presentState.to_ulong()));
+}
 
 template<std::size_t NUM_ROWS, std::size_t NUM_COLS, bool IS_TORUS>
 void play(std::array<std::string, NUM_ROWS> const& fieldString, std::vector<std::pair<std::size_t, std::size_t>> const& holeConnections) {
@@ -461,6 +461,8 @@ void play(std::array<std::string, NUM_ROWS> const& fieldString, std::vector<std:
 	PresentOverlay<NUM_ROWS, NUM_COLS> presentOverlay = init.second;
 
 	std::queue<QueueObject> penguinPositions;
+	knownPositions.clear();
+	addPosition(board.getPenguinStartingPosition(), presentOverlay.getRepresentation());
 	penguinPositions.push(QueueObject(board.getPenguinStartingPosition(), presentOverlay.getRepresentation()));
 
 	std::size_t newPos;
@@ -469,35 +471,45 @@ void play(std::array<std::string, NUM_ROWS> const& fieldString, std::vector<std:
 		QueueObject const& p = penguinPositions.front();
 
 		if (board.getPieceAt(p.getPos()) == BoardPiece::TARGET) {
-			std::cout << "Found hole using moves '" << p.getMoves() << "'." << std::endl;
-			return;
+			PresentOverlay<NUM_ROWS, NUM_COLS> localOverlay(presentOverlay.getBase(), p.getPresentState());
+			std::cout << "Found target with " << localOverlay.getPresentsLeft() << " presents left using moves '" << p.getMoves() << "'." << std::endl;
+			if (localOverlay.getPresentsLeft() == 0) {
+				return;
+			} else {
+				penguinPositions.pop();
+				continue;
+			}
 		}
 
 		if (board.canMoveUp(p.getPos(), target)) {
 			PresentOverlay<NUM_ROWS, NUM_COLS> localOverlay(presentOverlay.getBase(), p.getPresentState());
 			newPos = board.moveUp(p.getPos(), localOverlay);
-			if (!p.hasSeenPosition(newPos, localOverlay.getRepresentation())) {
+			if (!hasSeenPosition(newPos, localOverlay.getRepresentation())) {
+				addPosition(newPos, localOverlay.getRepresentation());
 				penguinPositions.push(p.moveTo(newPos, localOverlay.getRepresentation(), 'U'));
 			}
 		}
 		if (board.canMoveDown(p.getPos(), target)) {
 			PresentOverlay<NUM_ROWS, NUM_COLS> localOverlay(presentOverlay.getBase(), p.getPresentState());
 			newPos = board.moveDown(p.getPos(), localOverlay);
-			if (!p.hasSeenPosition(newPos, localOverlay.getRepresentation())) {
+			if (!hasSeenPosition(newPos, localOverlay.getRepresentation())) {
+				addPosition(newPos, localOverlay.getRepresentation());
 				penguinPositions.push(p.moveTo(newPos, localOverlay.getRepresentation(), 'D'));
 			}
 		}
 		if (board.canMoveLeft(p.getPos(), target)) {
 			PresentOverlay<NUM_ROWS, NUM_COLS> localOverlay(presentOverlay.getBase(), p.getPresentState());
 			newPos = board.moveLeft(p.getPos(), localOverlay);
-			if (!p.hasSeenPosition(newPos, localOverlay.getRepresentation())) {
+			if (!hasSeenPosition(newPos, localOverlay.getRepresentation())) {
+				addPosition(newPos, localOverlay.getRepresentation());
 				penguinPositions.push(p.moveTo(newPos, localOverlay.getRepresentation(), 'L'));
 			}
 		}
 		if (board.canMoveRight(p.getPos(), target)) {
 			PresentOverlay<NUM_ROWS, NUM_COLS> localOverlay(presentOverlay.getBase(), p.getPresentState());
 			newPos = board.moveRight(p.getPos(), localOverlay);
-			if (!p.hasSeenPosition(newPos, localOverlay.getRepresentation())) {
+			if (!hasSeenPosition(newPos, localOverlay.getRepresentation())) {
+				addPosition(newPos, localOverlay.getRepresentation());
 				penguinPositions.push(p.moveTo(newPos, localOverlay.getRepresentation(), 'R'));
 			}
 		}
@@ -512,7 +524,7 @@ int main(int argc, char* argv[]) {
 	std::cout << "c't, Puzzle 19/2023" << std::endl;
 	auto const beginTotal = std::chrono::steady_clock::now();
 
-	if (true) {
+	if (false) {
 		play<20, 20, false>(fieldStringBasic, holeConnectionsBasic);
 	} else {
 		play<40, 40, true>(fieldStringChristmas, holeConnectionsChristmas);
