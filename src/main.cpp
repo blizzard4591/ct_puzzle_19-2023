@@ -11,6 +11,8 @@
 
 #include <QGuiApplication>
 
+#include "Trie.h"
+
 enum class BoardPiece {
 	EMPTY,
 	HOLE,
