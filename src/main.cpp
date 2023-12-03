@@ -1,15 +1,13 @@
+#include <algorithm>
 #include <array>
 #include <bitset>
 #include <chrono>
 #include <iostream>
 #include <list>
+#include <optional>
 #include <string>
 #include <unordered_set>
 #include <queue>
-
-#include <QString>
-
-#include <QGuiApplication>
 
 #include "Trie.h"
 
@@ -141,7 +139,7 @@ private:
 	std::size_t m_totalPresentCount;
 };
 
-template<std::size_t NUM_ROWS, std::size_t NUM_COLS>
+template<std::size_t NUM_ROWS, std::size_t NUM_COLS, std::size_t BIT_COUNT>
 class PresentOverlay {
 public:
 	PresentOverlay(PresentBase<NUM_ROWS, NUM_COLS> const& base) : m_presentBase(base) {
@@ -150,7 +148,7 @@ public:
 			m_presents[i] = true;
 		}
 	}
-	PresentOverlay(PresentBase<NUM_ROWS, NUM_COLS> const& base, std::bitset<32> const& presents) : m_presentBase(base), m_presents(presents) {
+	PresentOverlay(PresentBase<NUM_ROWS, NUM_COLS> const& base, std::bitset<BIT_COUNT> const& presents) : m_presentBase(base), m_presents(presents) {
 		//
 	}
 
@@ -164,7 +162,7 @@ public:
 			exit(-1);
 		}
 		std::size_t const mappedIndex = m_presentBase.getBitmapIndex(pos);
-		if (mappedIndex < 32) {
+		if (mappedIndex < BIT_COUNT) {
 			m_presents[mappedIndex] = false;
 		}
 	}
@@ -177,7 +175,7 @@ public:
 		return m_presentBase.getTotalPresentCount() - m_presents.count();
 	}
 
-	inline std::bitset<32> const& getRepresentation() const noexcept(true) {
+	inline std::bitset<BIT_COUNT> const& getRepresentation() const noexcept(true) {
 		return m_presents;
 	}
 
@@ -186,10 +184,10 @@ public:
 	}
 private:
 	PresentBase<NUM_ROWS, NUM_COLS> const m_presentBase;
-	std::bitset<32> m_presents;
+	std::bitset<BIT_COUNT> m_presents;
 };
 
-template<std::size_t NUM_ROWS, std::size_t NUM_COLS, bool IS_TORUS>
+template<std::size_t NUM_ROWS, std::size_t NUM_COLS, bool IS_TORUS, std::size_t PRESENT_COUNT>
 class Board {
 public:
 	Board(std::array<BoardPiece, NUM_ROWS * NUM_COLS> const& pieces, std::size_t const& penguinStartingPosition, std::vector<std::pair<std::size_t, std::size_t>> const& holeConnections)
@@ -200,7 +198,7 @@ public:
 		//
 	}
 
-	static std::pair<Board<NUM_ROWS, NUM_COLS, IS_TORUS>, PresentOverlay<NUM_ROWS, NUM_COLS>> fromFieldString(std::array<std::string, NUM_ROWS> const& fieldString, std::vector<std::pair<std::size_t, std::size_t>> const& holeConnections) {
+	static std::pair<Board<NUM_ROWS, NUM_COLS, IS_TORUS, PRESENT_COUNT>, PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT>> fromFieldString(std::array<std::string, NUM_ROWS> const& fieldString, std::vector<std::pair<std::size_t, std::size_t>> const& holeConnections) {
 		std::array<BoardPiece, NUM_ROWS * NUM_COLS> pieces;
 		std::size_t linearCount = 0;
 		BoardPiece piece;
@@ -263,9 +261,12 @@ public:
 		} else if (holePositions.size() != holeConnections.size()) {
 			std::cerr << "Invalid input, could not find all hole positions on the board!" << std::endl;
 			exit(-1);
+		} else if (presentPositions.size() > PRESENT_COUNT) {
+			std::cerr << "Invalid input, there are too many presents on the board!" << std::endl;
+			exit(-1);
 		}
 
-		return std::make_pair(Board<NUM_ROWS, NUM_COLS, IS_TORUS>(pieces, penguinPosition.value(), holeConnections), PresentOverlay<NUM_ROWS, NUM_COLS>(presentPositions));
+		return std::make_pair(Board<NUM_ROWS, NUM_COLS, IS_TORUS, PRESENT_COUNT>(pieces, penguinPosition.value(), holeConnections), PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT>(presentPositions));
 	}
 
 	std::size_t getPenguinStartingPosition() const {
@@ -280,10 +281,12 @@ public:
 		return piece != BoardPiece::WALL && piece != BoardPiece::TREE;
 	}
 
-	bool canMoveUp(std::size_t const& pos, std::size_t& target) const {
+	bool canMoveUp(std::size_t const& pos, std::size_t& target, bool& wasTorusMove) const {
+		wasTorusMove = false;
 		if (pos >= (NUM_ROWS * NUM_COLS)) throw;
 		if (pos < NUM_COLS) {
 			if (IS_TORUS) {
+				wasTorusMove = true;
 				target = pos + ((NUM_ROWS - 1) * NUM_COLS);
 				return isPieceNotSolid(getPieceAt(target));
 			}
@@ -293,10 +296,12 @@ public:
 		return isPieceNotSolid(getPieceAt(target));
 	}
 
-	bool canMoveDown(std::size_t const& pos, std::size_t& target) const {
+	bool canMoveDown(std::size_t const& pos, std::size_t& target, bool& wasTorusMove) const {
+		wasTorusMove = false;
 		if (pos >= (NUM_ROWS * NUM_COLS)) throw;
 		if (pos >= ((NUM_ROWS - 1) * NUM_COLS)) {
 			if (IS_TORUS) {
+				wasTorusMove = true;
 				target = pos - ((NUM_ROWS - 1) * NUM_COLS);
 				return isPieceNotSolid(getPieceAt(target));
 			}
@@ -306,10 +311,12 @@ public:
 		return isPieceNotSolid(getPieceAt(target));
 	}
 
-	bool canMoveLeft(std::size_t const& pos, std::size_t& target) const {
+	bool canMoveLeft(std::size_t const& pos, std::size_t& target, bool& wasTorusMove) const {
+		wasTorusMove = false;
 		if (pos >= (NUM_ROWS * NUM_COLS)) throw;
 		if ((pos % NUM_COLS) == 0) {
 			if (IS_TORUS) {
+				wasTorusMove = true;
 				target = pos + (NUM_COLS - 1);
 				return isPieceNotSolid(getPieceAt(target));
 			}
@@ -319,10 +326,12 @@ public:
 		return isPieceNotSolid(getPieceAt(target));
 	}
 
-	bool canMoveRight(std::size_t const& pos, std::size_t& target) const {
+	bool canMoveRight(std::size_t const& pos, std::size_t& target, bool& wasTorusMove) const {
+		wasTorusMove = false;
 		if (pos >= (NUM_ROWS * NUM_COLS)) throw;
 		if ((pos % NUM_COLS) == (NUM_COLS - 1)) {
 			if (IS_TORUS) {
+				wasTorusMove = true;
 				target = pos - (NUM_COLS - 1);
 				return isPieceNotSolid(getPieceAt(target));
 			}
@@ -332,48 +341,52 @@ public:
 		return isPieceNotSolid(getPieceAt(target));
 	}
 
-	std::size_t moveUp(std::size_t pos, PresentOverlay<NUM_ROWS, NUM_COLS>& presents) const {
-		std::size_t result = 0;
-		while (canMoveUp(pos, result)) {
+	std::size_t moveUp(std::size_t pos, PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT>& presents) const {
+		static std::size_t result = 0;
+		static bool wasTorusMove = false;
+		while (canMoveUp(pos, result, wasTorusMove)) {
 			pos = result;
 			presents.collectOn(pos);
-			if (getPieceAt(pos) != BoardPiece::EMPTY) {
+			if (getPieceAt(pos) != BoardPiece::EMPTY || wasTorusMove) {
 				break;
 			}
 		}
 		return swapHoleIfOn(pos);
 	}
 
-	std::size_t moveDown(std::size_t pos, PresentOverlay<NUM_ROWS, NUM_COLS>& presents) const {
-		std::size_t result = 0;
-		while (canMoveDown(pos, result)) {
+	std::size_t moveDown(std::size_t pos, PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT>& presents) const {
+		static std::size_t result = 0;
+		static bool wasTorusMove = false;
+		while (canMoveDown(pos, result, wasTorusMove)) {
 			pos = result;
 			presents.collectOn(pos);
-			if (getPieceAt(pos) != BoardPiece::EMPTY) {
+			if (getPieceAt(pos) != BoardPiece::EMPTY || wasTorusMove) {
 				break;
 			}
 		}
 		return swapHoleIfOn(pos);
 	}
 
-	std::size_t moveLeft(std::size_t pos, PresentOverlay<NUM_ROWS, NUM_COLS>& presents) const {
-		std::size_t result = 0;
-		while (canMoveLeft(pos, result)) {
+	std::size_t moveLeft(std::size_t pos, PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT>& presents) const {
+		static std::size_t result = 0;
+		static bool wasTorusMove = false;
+		while (canMoveLeft(pos, result, wasTorusMove)) {
 			pos = result;
 			presents.collectOn(pos);
-			if (getPieceAt(pos) != BoardPiece::EMPTY) {
+			if (getPieceAt(pos) != BoardPiece::EMPTY || wasTorusMove) {
 				break;
 			}
 		}
 		return swapHoleIfOn(pos);
 	}
 
-	std::size_t moveRight(std::size_t pos, PresentOverlay<NUM_ROWS, NUM_COLS>& presents) const {
-		std::size_t result = 0;
-		while (canMoveRight(pos, result)) {
+	std::size_t moveRight(std::size_t pos, PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT>& presents) const {
+		static std::size_t result = 0;
+		static bool wasTorusMove = false;
+		while (canMoveRight(pos, result, wasTorusMove)) {
 			pos = result;
 			presents.collectOn(pos);
-			if (getPieceAt(pos) != BoardPiece::EMPTY) {
+			if (getPieceAt(pos) != BoardPiece::EMPTY || wasTorusMove) {
 				break;
 			}
 		}
@@ -412,13 +425,14 @@ private:
 	std::vector<std::pair<std::size_t, std::size_t>> const m_holeConnections;
 };
 
+template <std::size_t PRESENT_COUNT>
 class QueueObject {
 public:
-	QueueObject(std::size_t const& penguinPosition, std::bitset<32> const& presentState) : m_pos(penguinPosition), m_presentState(presentState), m_moves("") {
+	QueueObject(std::size_t const& penguinPosition, std::bitset<PRESENT_COUNT> const& presentState) : m_pos(penguinPosition), m_presentState(presentState), m_moves("") {
 		//
 	}
 
-	QueueObject(std::size_t const& pos, std::bitset<32> const& presentState, std::string&& moves) : m_pos(pos), m_presentState(presentState), m_moves(moves) {
+	QueueObject(std::size_t const& pos, std::bitset<PRESENT_COUNT> const& presentState, std::string&& moves) : m_pos(pos), m_presentState(presentState), m_moves(moves) {
 		//
 	}
 
@@ -426,7 +440,7 @@ public:
 		return m_pos;
 	}
 
-	inline std::bitset<32> getPresentState() const noexcept(true) {
+	inline std::bitset<PRESENT_COUNT> getPresentState() const noexcept(true) {
 		return m_presentState;
 	}
 
@@ -434,106 +448,43 @@ public:
 		return m_moves;
 	}
 
-	QueueObject moveTo(std::size_t const& newPos, std::bitset<32> const& presentState, char direction) const {
+	QueueObject moveTo(std::size_t const& newPos, std::bitset<PRESENT_COUNT> const& presentState, char direction) const {
 		return QueueObject(newPos, presentState, m_moves + direction);
 	}
 private:
 	std::size_t const m_pos;
-	std::bitset<32> const m_presentState;
+	std::bitset<PRESENT_COUNT> const m_presentState;
 	std::string const m_moves;
 };
 
-inline std::size_t makeKey(std::size_t const& pos, unsigned long const& presentState) noexcept(true) {
-	return (pos << 32uLL) | (presentState & 0xFFFFFFFFuLL);
-}
-
-bool is_b_subset_of_a(unsigned long const& a, unsigned long const& b) noexcept(true) {
-	return (b & ~a) == 0ul;
-}
-
-std::vector<std::unordered_set<unsigned long>> knownPositions;
-bool hasSeenPosition(std::size_t const& pos, std::bitset<32> const& presentState) {
-	std::unordered_set<unsigned long> const& set = knownPositions[pos];
-	auto const newState = presentState.to_ulong();
-	if (set.find(newState) != set.cend()) {
-		return true;
-	}
-	
-	for (auto it = set.cbegin(); it != set.cend(); ++it) {
-		auto const& knownState = *it;
-		if (is_b_subset_of_a(newState, knownState)) {
-			return true;
-		}
-	}
-	return false;
-}
-
-inline void addPosition(std::size_t const& pos, std::bitset<32> const& presentState) {
-	knownPositions[pos].insert(presentState.to_ulong());
-}
-
-void cleanupKnownPositions() {
-	auto const beginTotal = std::chrono::steady_clock::now();
-
-	std::size_t removalCount = 0;
-	std::size_t totalCount = 0;
-	for (auto itO = knownPositions.begin(); itO != knownPositions.end(); ++itO) {
-		std::unordered_set<unsigned long>& set = *itO;
-		totalCount += set.size();
-		if (set.size() < 2) {
-			continue;
-		}
-
-		for (auto it = set.begin(); it != set.end(); ++it) {
-			auto const& knownState = *it;
-			for (auto it2 = set.begin(); it2 != set.end(); ++it2) {
-				auto const& otherState = *it;
-				if (knownState == otherState) {
-					continue;
-				}
-				if (is_b_subset_of_a(knownState, otherState)) {
-					it = set.erase(it);
-					++removalCount;
-					break;
-				}
-			}
-		}
-	}
-
-	auto const endIterate = std::chrono::steady_clock::now();
-	std::cout << "Removed " << removalCount << " entries in cleanup round taking " << std::chrono::duration_cast<std::chrono::microseconds>(endIterate - beginTotal).count() << "us - " << totalCount << " entries (" << (totalCount / knownPositions.size()) << " avg.)." << std::endl;
-}
-
-template<std::size_t NUM_ROWS, std::size_t NUM_COLS, bool IS_TORUS>
+template<std::size_t NUM_ROWS, std::size_t NUM_COLS, bool IS_TORUS, std::size_t PRESENT_COUNT>
 void play(std::array<std::string, NUM_ROWS> const& fieldString, std::vector<std::pair<std::size_t, std::size_t>> const& holeConnections) {
-	auto const init = Board<NUM_ROWS, NUM_COLS, IS_TORUS>::fromFieldString(fieldString, holeConnections);
-	Board<NUM_ROWS, NUM_COLS, IS_TORUS> board = init.first;
-	PresentOverlay<NUM_ROWS, NUM_COLS> presentOverlay = init.second;
+	auto const init = Board<NUM_ROWS, NUM_COLS, IS_TORUS, PRESENT_COUNT>::fromFieldString(fieldString, holeConnections);
+	Board<NUM_ROWS, NUM_COLS, IS_TORUS, PRESENT_COUNT> board = init.first;
+	PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> presentOverlay = init.second;
 
-	std::queue<QueueObject> penguinPositions;
+	std::queue<QueueObject<PRESENT_COUNT>> penguinPositions;
+	std::vector<Trie<PRESENT_COUNT>> knownPositions;
 	
 	knownPositions.clear();
 	for (std::size_t i = 0; i < NUM_ROWS * NUM_COLS; ++i) {
-		knownPositions.push_back(std::unordered_set<unsigned long>());
+		knownPositions.push_back(Trie<PRESENT_COUNT>());
 	}
 
-	addPosition(board.getPenguinStartingPosition(), presentOverlay.getRepresentation());
-	penguinPositions.push(QueueObject(board.getPenguinStartingPosition(), presentOverlay.getRepresentation()));
+	knownPositions[board.getPenguinStartingPosition()].insertValue(presentOverlay.getRepresentation());
+	penguinPositions.push(QueueObject<PRESENT_COUNT>(board.getPenguinStartingPosition(), presentOverlay.getRepresentation()));
 
 	std::size_t newPos;
 	std::size_t target;
+	bool wasTorusMove;
 
 	std::size_t roundCounter = 0;
 	while (!penguinPositions.empty()) {
 		++roundCounter;
-		if (roundCounter % 100000 == 0) {
-			cleanupKnownPositions();
-		}
-
-		QueueObject const& p = penguinPositions.front();
+		QueueObject<PRESENT_COUNT> const& p = penguinPositions.front();
 
 		if (board.getPieceAt(p.getPos()) == BoardPiece::TARGET) {
-			PresentOverlay<NUM_ROWS, NUM_COLS> localOverlay(presentOverlay.getBase(), p.getPresentState());
+			PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> localOverlay(presentOverlay.getBase(), p.getPresentState());
 			std::cout << "Found target with " << localOverlay.getPresentsLeft() << " presents left using moves '" << p.getMoves() << "'." << std::endl;
 			if (localOverlay.getPresentsLeft() == 0) {
 				return;
@@ -543,35 +494,36 @@ void play(std::array<std::string, NUM_ROWS> const& fieldString, std::vector<std:
 			}
 		}
 
-		if (board.canMoveUp(p.getPos(), target)) {
-			PresentOverlay<NUM_ROWS, NUM_COLS> localOverlay(presentOverlay.getBase(), p.getPresentState());
+		if (board.canMoveUp(p.getPos(), target, wasTorusMove)) {
+			PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> localOverlay(presentOverlay.getBase(), p.getPresentState());
 			newPos = board.moveUp(p.getPos(), localOverlay);
-			if (!hasSeenPosition(newPos, localOverlay.getRepresentation())) {
-				addPosition(newPos, localOverlay.getRepresentation());
+			
+			if (!knownPositions[newPos].hasValueOrSubsetThereof(localOverlay.getRepresentation())) {
+				knownPositions[newPos].insertValue(localOverlay.getRepresentation());
 				penguinPositions.push(p.moveTo(newPos, localOverlay.getRepresentation(), 'U'));
 			}
 		}
-		if (board.canMoveDown(p.getPos(), target)) {
-			PresentOverlay<NUM_ROWS, NUM_COLS> localOverlay(presentOverlay.getBase(), p.getPresentState());
+		if (board.canMoveDown(p.getPos(), target, wasTorusMove)) {
+			PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> localOverlay(presentOverlay.getBase(), p.getPresentState());
 			newPos = board.moveDown(p.getPos(), localOverlay);
-			if (!hasSeenPosition(newPos, localOverlay.getRepresentation())) {
-				addPosition(newPos, localOverlay.getRepresentation());
+			if (!knownPositions[newPos].hasValueOrSubsetThereof(localOverlay.getRepresentation())) {
+				knownPositions[newPos].insertValue(localOverlay.getRepresentation());
 				penguinPositions.push(p.moveTo(newPos, localOverlay.getRepresentation(), 'D'));
 			}
 		}
-		if (board.canMoveLeft(p.getPos(), target)) {
-			PresentOverlay<NUM_ROWS, NUM_COLS> localOverlay(presentOverlay.getBase(), p.getPresentState());
+		if (board.canMoveLeft(p.getPos(), target, wasTorusMove)) {
+			PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> localOverlay(presentOverlay.getBase(), p.getPresentState());
 			newPos = board.moveLeft(p.getPos(), localOverlay);
-			if (!hasSeenPosition(newPos, localOverlay.getRepresentation())) {
-				addPosition(newPos, localOverlay.getRepresentation());
+			if (!knownPositions[newPos].hasValueOrSubsetThereof(localOverlay.getRepresentation())) {
+				knownPositions[newPos].insertValue(localOverlay.getRepresentation());
 				penguinPositions.push(p.moveTo(newPos, localOverlay.getRepresentation(), 'L'));
 			}
 		}
-		if (board.canMoveRight(p.getPos(), target)) {
-			PresentOverlay<NUM_ROWS, NUM_COLS> localOverlay(presentOverlay.getBase(), p.getPresentState());
+		if (board.canMoveRight(p.getPos(), target, wasTorusMove)) {
+			PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> localOverlay(presentOverlay.getBase(), p.getPresentState());
 			newPos = board.moveRight(p.getPos(), localOverlay);
-			if (!hasSeenPosition(newPos, localOverlay.getRepresentation())) {
-				addPosition(newPos, localOverlay.getRepresentation());
+			if (!knownPositions[newPos].hasValueOrSubsetThereof(localOverlay.getRepresentation())) {
+				knownPositions[newPos].insertValue(localOverlay.getRepresentation());
 				penguinPositions.push(p.moveTo(newPos, localOverlay.getRepresentation(), 'R'));
 			}
 		}
@@ -581,15 +533,13 @@ void play(std::array<std::string, NUM_ROWS> const& fieldString, std::vector<std:
 }
 
 int main(int argc, char* argv[]) {
-	QGuiApplication app(argc, argv);
-
 	std::cout << "c't, Puzzle 19/2023" << std::endl;
 	auto const beginTotal = std::chrono::steady_clock::now();
 
 	if (false) {
-		play<20, 20, false>(fieldStringBasic, holeConnectionsBasic);
+		play<20, 20, false, 1>(fieldStringBasic, holeConnectionsBasic);
 	} else {
-		play<40, 40, true>(fieldStringChristmas, holeConnectionsChristmas);
+		play<40, 40, true, 24>(fieldStringChristmas, holeConnectionsChristmas);
 	}
 
 	auto const endIterate = std::chrono::steady_clock::now();

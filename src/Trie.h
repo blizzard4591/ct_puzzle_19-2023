@@ -2,25 +2,85 @@
 #define TRIE_H_
 
 #include <bitset>
-#include <memory>
+#include <vector>
 
-class TrieNode {
+struct TrieNode {
 public:
-	std::unique_ptr<TrieNode> zeroChild;
-	std::unique_ptr<TrieNode> oneChild;
+	TrieNode() : zeroChild(-1), oneChild(-1) {
+		//
+	}
+
+	std::int64_t zeroChild;
+	std::int64_t oneChild;
 };
 
+template <std::size_t BIT_COUNT>
 class Trie {
 public:
-	Trie();
-	~Trie();
+	Trie() : m_nodes() {
+		//
+	}
+	~Trie() {
+		//
+	}
 
-	bool hasValueOrSubsetThereof(std::bitset<32> const& value) const;
-	void insertValue(std::bitset<32> const& value);
+	bool hasValueOrSubsetThereof(std::bitset<BIT_COUNT> const& value) const {
+		if (BIT_COUNT == 0) {
+			return true;
+		}
+		if (m_nodes.size() == 0) {
+			return false;
+		}
+
+		return checkNodeHasValueOrSubsetThereof(0, value, 0);
+	}
+
+	void insertValue(std::bitset<BIT_COUNT> const& value) {
+		if (m_nodes.size() == 0) {
+			makeNode();
+		}
+
+		std::int64_t nodeIndex = 0;
+		for (std::size_t i = 0; i < BIT_COUNT; ++i) {
+			auto const bit = value[i];
+			if (!bit) {
+				if (m_nodes[nodeIndex].zeroChild < 0) {
+					m_nodes[nodeIndex].zeroChild = makeNode();
+				}
+				nodeIndex = m_nodes[nodeIndex].zeroChild;
+			} else {
+				if (m_nodes[nodeIndex].oneChild < 0) {
+					m_nodes[nodeIndex].oneChild = makeNode();
+				}
+				nodeIndex = m_nodes[nodeIndex].oneChild;
+			}
+		}
+	}
 private:
-	bool checkNodeHasValueOrSubsetThereof(TrieNode* node, std::bitset<32> const& value, std::size_t i) const;
+	inline std::int64_t makeNode() {
+		std::int64_t const result = m_nodes.size();
+		m_nodes.push_back(TrieNode());
+		return result;
+	}
 
-	std::unique_ptr<TrieNode> m_root;
+	bool checkNodeHasValueOrSubsetThereof(std::int64_t const& nodeIndex, std::bitset<BIT_COUNT> const& value, std::size_t i) const {
+		if (i >= (BIT_COUNT - 1)) {
+			return true;
+		}
+
+		auto const bit = value[i];
+		if (m_nodes[nodeIndex].zeroChild >= 0) {
+			if (checkNodeHasValueOrSubsetThereof(m_nodes[nodeIndex].zeroChild, value, i + 1)) {
+				return true;
+			}
+		}
+		if (bit && (m_nodes[nodeIndex].oneChild >= 0)) {
+			return checkNodeHasValueOrSubsetThereof(m_nodes[nodeIndex].oneChild, value, i + 1);
+		}
+		return false;
+	}
+
+	std::vector<TrieNode> m_nodes;
 };
 
 #endif
