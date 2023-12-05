@@ -36,6 +36,9 @@ endif()
 include_directories("${PROJECT_SOURCE_DIR}")
 include_directories("${PROJECT_SOURCE_DIR}/src")
 
+# Include cereal
+include_directories("${PROJECT_SOURCE_DIR}/thirdParty/cereal-1.3.2/include")
+
 # Main Sources
 file(GLOB PROJECT_HEADERS ${PROJECT_SOURCE_DIR}/src/*.h)
 file(GLOB PROJECT_SOURCES_CPP ${PROJECT_SOURCE_DIR}/src/*.cpp)

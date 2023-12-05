@@ -12,6 +12,11 @@ public:
 
 	std::int64_t zeroChild;
 	std::int64_t oneChild;
+
+	template<class Archive>
+	void serialize(Archive& archive) {
+		archive(zeroChild, oneChild);
+	}
 };
 
 template <std::size_t BIT_COUNT>
@@ -55,6 +60,11 @@ public:
 				nodeIndex = m_nodes[nodeIndex].oneChild;
 			}
 		}
+	}
+
+	template<class Archive>
+	void serialize(Archive& archive) {
+		archive(m_nodes);
 	}
 private:
 	inline std::int64_t makeNode() {
