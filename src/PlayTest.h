@@ -21,7 +21,7 @@ std::size_t getY(std::size_t const& pos) {
 }
 
 template<std::size_t NUM_ROWS, std::size_t NUM_COLS, bool IS_TORUS, std::size_t PRESENT_COUNT>
-void playString(std::array<std::string, NUM_ROWS> const& fieldString, std::vector<std::pair<std::size_t, std::size_t>> const& holeConnections, std::string const& moves) {
+std::size_t playString(std::array<std::string, NUM_ROWS> const& fieldString, std::vector<std::pair<std::size_t, std::size_t>> const& holeConnections, std::string const& moves) {
 	auto const init = Board<NUM_ROWS, NUM_COLS, IS_TORUS, PRESENT_COUNT>::fromFieldString(fieldString, holeConnections);
 	Board<NUM_ROWS, NUM_COLS, IS_TORUS, PRESENT_COUNT> board = init.first;
 	PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> presentOverlay = init.second;
@@ -31,12 +31,14 @@ void playString(std::array<std::string, NUM_ROWS> const& fieldString, std::vecto
 	std::size_t newPos;
 	std::size_t target;
 
+	std::size_t roundCounter = 0;
 	std::cout << "Started in position X = " << getX<NUM_COLS>(pos) << ", Y = " << getY<NUM_COLS>(pos) << "." << std::endl;
 	for (std::size_t i = 0; i < moves.size(); ++i) {
 		if (board.getPieceAt(pos) == BoardPiece::TARGET) {
 			std::cout << "Found target with " << presentOverlay.getPresentsLeft() << " presents left using moves '" << moves << "'." << std::endl;
-			return;
+			return roundCounter;
 		}
+		++roundCounter;
 
 		char const move = moves.at(i);
 		switch (move) {
@@ -77,6 +79,7 @@ void playString(std::array<std::string, NUM_ROWS> const& fieldString, std::vecto
 				exit(-1);
 		}
 	}
+	return roundCounter;
 }
 
 

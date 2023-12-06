@@ -3,16 +3,57 @@
 
 #include <array>
 #include <cstdint>
+#include <filesystem>
+#include <fstream>
 #include <iomanip>
 #include <string>
 #include <vector>
 
 #include "Trie.h"
 
-#include <fstream>
+#include "lz4_stream.h"
+
+inline bool ends_with(std::string const& value, std::string const& ending) {
+	if (ending.size() > value.size()) return false;
+	return std::equal(ending.rbegin(), ending.rend(), value.rbegin());
+}
+
+template<std::size_t PRESENT_COUNT>
+void checkForFinalStates(std::vector<Trie<PRESENT_COUNT>> const& knownPositions) {
+	auto const allZeroBitset = std::bitset<PRESENT_COUNT>();
+	std::size_t totalStates = 0;
+	std::size_t statesWithAllPresents = 0;
+	for (auto itO = knownPositions.cbegin(); itO != knownPositions.cend(); ++itO) {
+		Trie<PRESENT_COUNT> const& trie = *itO;
+		++totalStates;
+		if (trie.hasValueOrSubsetThereof(allZeroBitset)) {
+			++statesWithAllPresents;
+		}
+	}
+	std::cout << "We have " << statesWithAllPresents << " of " << totalStates << " states visited with all presents taken." << std::endl;
+}
+
+template<std::size_t NUM_ROWS, std::size_t NUM_COLS, std::size_t PRESENT_COUNT>
+inline void updateStack(std::vector<Trie<PRESENT_COUNT>>& knownPositions, std::queue<QueueObject<PRESENT_COUNT>>& penguinPositions, QueueObject<PRESENT_COUNT> const& p, PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> const& localOverlay, std::size_t const& newPos, bool isFinalState, char direction) {
+	static auto const allZeroBitset = std::bitset<PRESENT_COUNT>();
+	if (!knownPositions[newPos].hasValueOrSubsetThereof(localOverlay.getRepresentation())) {
+		knownPositions[newPos].insertValue(localOverlay.getRepresentation());
+		penguinPositions.push(p.moveTo(newPos, localOverlay.getRepresentation(), direction));
+
+		bool const isFinalStateInsert = localOverlay.getRepresentation().count() == 0;
+		if (isFinalStateInsert) {
+			std::cout << "We arrived at X = " << getX<NUM_COLS>(newPos) << " and Y = " << getY<NUM_COLS>(newPos) << " with all presents found!" << std::endl;
+		}
+		if (isFinalState) {
+			std::cout << "Can move " << direction << " and position X = " << getX<NUM_COLS>(newPos) << " and Y = " << getY<NUM_COLS>(newPos) << " not known." << std::endl;
+		}
+	} else if (isFinalState) {
+		std::cout << "Can move " << direction << " and position X = " << getX<NUM_COLS>(newPos) << " and Y = " << getY<NUM_COLS>(newPos) << " IS known." << std::endl;
+	}
+}
 
 template<std::size_t NUM_ROWS, std::size_t NUM_COLS, bool IS_TORUS, std::size_t PRESENT_COUNT>
-void play(std::array<std::string, NUM_ROWS> const& fieldString, std::vector<std::pair<std::size_t, std::size_t>> const& holeConnections) {
+std::size_t play(std::array<std::string, NUM_ROWS> const& fieldString, std::vector<std::pair<std::size_t, std::size_t>> const& holeConnections, std::string const& stateFilename = "") {
 	auto const init = Board<NUM_ROWS, NUM_COLS, IS_TORUS, PRESENT_COUNT>::fromFieldString(fieldString, holeConnections);
 	Board<NUM_ROWS, NUM_COLS, IS_TORUS, PRESENT_COUNT> board = init.first;
 	PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> presentOverlay = init.second;
@@ -21,12 +62,6 @@ void play(std::array<std::string, NUM_ROWS> const& fieldString, std::vector<std:
 	std::vector<Trie<PRESENT_COUNT>> knownPositions;
 
 	knownPositions.clear();
-	for (std::size_t i = 0; i < NUM_ROWS * NUM_COLS; ++i) {
-		knownPositions.push_back(Trie<PRESENT_COUNT>());
-	}
-
-	knownPositions[board.getPenguinStartingPosition()].insertValue(presentOverlay.getRepresentation());
-	penguinPositions.push(QueueObject<PRESENT_COUNT>(board.getPenguinStartingPosition(), presentOverlay.getRepresentation()));
 
 	std::size_t newPos;
 	std::size_t target;
@@ -39,13 +74,66 @@ void play(std::array<std::string, NUM_ROWS> const& fieldString, std::vector<std:
 	std::size_t const everyNthTarget = 250;
 	std::size_t const everyNthTargetBackup = 100000;
 	std::size_t targetCounter = 1;
+	std::size_t howOftenZeroCountdown = 16;
+	std::string lastBackupFilename = "";
+	std::size_t roundCounter = 0;
+
+	if (!stateFilename.empty() && std::filesystem::exists(stateFilename)) {
+		auto const beginBackupLoad = std::chrono::steady_clock::now();
+
+		std::ifstream is(stateFilename, std::ios::binary);
+		lz4_stream::istream compressedStream(is);
+		cereal::BinaryInputArchive archive(compressedStream);
+		archive(currentMinPresentsLeft, currentMinPresentsLeftMoves, targetCounter, roundCounter, penguinPositions, knownPositions);
+
+		auto const endBackupLoad = std::chrono::steady_clock::now();
+		std::cout << "Loaded state backup at #" << targetCounter << " in " << std::chrono::duration_cast<std::chrono::milliseconds>(endBackupLoad - beginBackupLoad).count() << " ms, stack has " << penguinPositions.size() << " elements." << std::endl;
+		lastBackupFilename = stateFilename;
+
+		// Do some tests
+		QueueObject<PRESENT_COUNT> const& p = penguinPositions.front();
+		PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> localOverlay(presentOverlay.getBase(), p.getPresentState());
+		if (board.getPieceAt(p.getPos()) == BoardPiece::TARGET) {
+			std::cout << "Recovered top element has " << localOverlay.getPresentsLeft() << " present(s) left with moves '" << p.getMoves() << "'." << std::endl;
+			auto const bitset = p.getPresentState();
+			for (std::size_t i = 0; i < PRESENT_COUNT; ++i) {
+				if (bitset[i]) {
+					std::cout << "Present at position " << i << " is missing." << std::endl;
+					auto const inverse = ~bitset; // All ones, just present X is taken
+					std::size_t totalStates = 0;
+					std::size_t statesWithPresent8 = 0;
+					for (auto itO = knownPositions.cbegin(); itO != knownPositions.cend(); ++itO) {
+						Trie<PRESENT_COUNT> const& trie = *itO;
+						++totalStates;
+						if (trie.hasValueOrSubsetThereof(inverse)) {
+							++statesWithPresent8;
+						}
+					}
+					std::cout << "Present at position " << i << " has been seen taken at " << statesWithPresent8 << " of " << totalStates << " states." << std::endl;
+				}
+			}
+		} else {
+			std::cout << "Recovered top element is NOT a target state and has " << localOverlay.getPresentsLeft() << " present(s) left with moves '" << p.getMoves() << "'." << std::endl;
+		}
+
+		checkForFinalStates(knownPositions);
+	} else {
+		for (std::size_t i = 0; i < NUM_ROWS * NUM_COLS; ++i) {
+			knownPositions.push_back(Trie<PRESENT_COUNT>());
+		}
+
+		knownPositions[board.getPenguinStartingPosition()].insertValue(presentOverlay.getRepresentation());
+		penguinPositions.push(QueueObject<PRESENT_COUNT>(board.getPenguinStartingPosition(), presentOverlay.getRepresentation()));
+	}
 
 	auto const beginSearch = std::chrono::steady_clock::now();
-
-	std::size_t roundCounter = 0;
 	while (!penguinPositions.empty()) {
 		++roundCounter;
 		QueueObject<PRESENT_COUNT> const& p = penguinPositions.front();
+		bool const isFinalState = p.getPresentState().count() == 0;
+		if (isFinalState) {
+			std::cout << "Found a state at X = " << getX<NUM_COLS>(p.getPos()) << " and Y = " << getY<NUM_COLS>(p.getPos()) << " with all presents taken: " << p.getMoves() << std::endl;
+		}
 
 		if (board.getPieceAt(p.getPos()) == BoardPiece::TARGET) {
 			PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> localOverlay(presentOverlay.getBase(), p.getPresentState());
@@ -62,23 +150,41 @@ void play(std::array<std::string, NUM_ROWS> const& fieldString, std::vector<std:
 				double const speedTarget = static_cast<double>(us) / static_cast<double>(targetCounter);
 				double const speedRound = static_cast<double>(us) / static_cast<double>(roundCounter);
 
-				std::cout << "Found target #" << targetCounter << " with " << localOverlay.getPresentsLeft() << " presents left using moves '" << p.getMoves() << "' - current best is " << currentMinPresentsLeft << " with moves '" << currentMinPresentsLeftMoves << "', stack has " << penguinPositions.size() << " entries.";
-				std::cout << std::setprecision(2) << speedTarget << " us/T, " << std::setprecision(2) << speedRound << " us/R" << std::endl;
+				std::cout << "Found target #" << targetCounter << " with " << localOverlay.getPresentsLeft() << "/" << localOverlay.getBase().getTotalPresentCount() << " presents left using moves '" << p.getMoves() << "' - current best is " << currentMinPresentsLeft << " with moves '" << currentMinPresentsLeftMoves << "', stack has " << penguinPositions.size() << " entries. ";
+				std::cout << std::setprecision(6) << speedTarget << " us/T, " << std::setprecision(6) << speedRound << " us/R" << std::endl;
 			}
 			if (isNewRecord || (targetCounter % everyNthTargetBackup == 0)) {
-				auto const beginBackup = std::chrono::steady_clock::now();
-				std::ofstream os("state_" + std::to_string(targetCounter) + ".bin", std::ios::binary);
-				cereal::BinaryOutputArchive archive(os); // Create an output archive
-				archive(currentMinPresentsLeft, currentMinPresentsLeftMoves, targetCounter, roundCounter, penguinPositions, knownPositions);
-				auto const endBackup = std::chrono::steady_clock::now();
-				std::cout << "Made a state backup at #" << targetCounter << " in " << std::chrono::duration_cast<std::chrono::milliseconds>(endBackup - beginBackup).count() << "." << std::endl;
+				std::string const backupFilename = "state_" + std::to_string(targetCounter) + ".lz4.bin";
+				// In case we just restored from this backup
+				if (!ends_with(lastBackupFilename, backupFilename)) {
+					auto const beginBackup = std::chrono::steady_clock::now();
+					std::ofstream os(backupFilename, std::ios::binary);
+					lz4_stream::ostream compressedStream(os);
+					cereal::BinaryOutputArchive archive(compressedStream); // Create an output archive
+					archive(currentMinPresentsLeft, currentMinPresentsLeftMoves, targetCounter, roundCounter, penguinPositions, knownPositions);
+					auto const endBackup = std::chrono::steady_clock::now();
+					std::cout << "Made a state backup at #" << targetCounter << " in " << std::chrono::duration_cast<std::chrono::milliseconds>(endBackup - beginBackup).count() << " ms." << std::endl;
+					if (!lastBackupFilename.empty()) {
+						/*if (std::filesystem::remove(lastBackupFilename)) {
+							std::cout << "Deleted last backup '" << lastBackupFilename << "'." << std::endl;
+						} else {
+							std::cerr << "Failed to delete last backup '" << lastBackupFilename << "'!" << std::endl;
+						}*/
+					}
+					lastBackupFilename = backupFilename;
+				}
 			}
 
 			++targetCounter;
 			
 			if (localOverlay.getPresentsLeft() == 0) {
-				std::cout << "Terminating search, found a solution collecting all presents: " << p.getMoves() << std::endl;
-				return;
+				--howOftenZeroCountdown;
+				if (howOftenZeroCountdown == 0) {
+					std::cout << "Terminating search, found a solution collecting all presents: " << p.getMoves() << std::endl;
+					return roundCounter;
+				}
+				penguinPositions.pop();
+				continue;
 			} else {
 				penguinPositions.pop();
 				continue;
@@ -89,38 +195,29 @@ void play(std::array<std::string, NUM_ROWS> const& fieldString, std::vector<std:
 			PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> localOverlay(presentOverlay.getBase(), p.getPresentState());
 			newPos = board.moveUp(p.getPos(), localOverlay);
 
-			if (!knownPositions[newPos].hasValueOrSubsetThereof(localOverlay.getRepresentation())) {
-				knownPositions[newPos].insertValue(localOverlay.getRepresentation());
-				penguinPositions.push(p.moveTo(newPos, localOverlay.getRepresentation(), 'U'));
-			}
+			updateStack(knownPositions, penguinPositions, p, localOverlay, newPos, isFinalState, 'U');
 		}
 		if (board.canMoveDown(p.getPos(), target)) {
 			PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> localOverlay(presentOverlay.getBase(), p.getPresentState());
 			newPos = board.moveDown(p.getPos(), localOverlay);
-			if (!knownPositions[newPos].hasValueOrSubsetThereof(localOverlay.getRepresentation())) {
-				knownPositions[newPos].insertValue(localOverlay.getRepresentation());
-				penguinPositions.push(p.moveTo(newPos, localOverlay.getRepresentation(), 'D'));
-			}
+			updateStack(knownPositions, penguinPositions, p, localOverlay, newPos, isFinalState, 'D');
 		}
 		if (board.canMoveLeft(p.getPos(), target)) {
 			PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> localOverlay(presentOverlay.getBase(), p.getPresentState());
 			newPos = board.moveLeft(p.getPos(), localOverlay);
-			if (!knownPositions[newPos].hasValueOrSubsetThereof(localOverlay.getRepresentation())) {
-				knownPositions[newPos].insertValue(localOverlay.getRepresentation());
-				penguinPositions.push(p.moveTo(newPos, localOverlay.getRepresentation(), 'L'));
-			}
+			updateStack(knownPositions, penguinPositions, p, localOverlay, newPos, isFinalState, 'L');
 		}
 		if (board.canMoveRight(p.getPos(), target)) {
 			PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> localOverlay(presentOverlay.getBase(), p.getPresentState());
 			newPos = board.moveRight(p.getPos(), localOverlay);
-			if (!knownPositions[newPos].hasValueOrSubsetThereof(localOverlay.getRepresentation())) {
-				knownPositions[newPos].insertValue(localOverlay.getRepresentation());
-				penguinPositions.push(p.moveTo(newPos, localOverlay.getRepresentation(), 'R'));
-			}
+			updateStack(knownPositions, penguinPositions, p, localOverlay, newPos, isFinalState, 'R');
 		}
 
 		penguinPositions.pop();
 	}
+
+	std::cout << "Oh - no more states to explore - maybe there is no solution?" << std::endl;
+	return roundCounter;
 }
 
 

@@ -7,6 +7,10 @@
 template <std::size_t PRESENT_COUNT>
 class QueueObject {
 public:
+	QueueObject() : m_pos(0), m_presentState(), m_moves("") {
+		//
+	}
+
 	QueueObject(std::size_t const& penguinPosition, std::bitset<PRESENT_COUNT> const& presentState) : m_pos(penguinPosition), m_presentState(presentState), m_moves("") {
 		//
 	}
@@ -41,9 +45,9 @@ public:
 		archive(m_pos, m_presentState, m_moves);
 	}
 private:
-	std::size_t const m_pos;
-	std::bitset<PRESENT_COUNT> const m_presentState;
-	std::string const m_moves;
+	std::size_t m_pos;
+	std::bitset<PRESENT_COUNT> m_presentState;
+	std::string m_moves;
 };
 
 #endif

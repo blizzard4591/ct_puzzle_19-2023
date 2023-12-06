@@ -74,7 +74,7 @@ private:
 	}
 
 	bool checkNodeHasValueOrSubsetThereof(std::int64_t const& nodeIndex, std::bitset<BIT_COUNT> const& value, std::size_t i) const {
-		if (i >= (BIT_COUNT - 1)) {
+		if (i >= BIT_COUNT) {
 			return true;
 		}
 
