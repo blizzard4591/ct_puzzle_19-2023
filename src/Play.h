@@ -20,27 +20,29 @@ inline bool ends_with(std::string const& value, std::string const& ending) {
 
 template<std::size_t PRESENT_COUNT>
 void checkForFinalStates(std::vector<Trie<PRESENT_COUNT>> const& knownPositions) {
-	auto const allZeroBitset = std::bitset<PRESENT_COUNT>();
-	std::size_t totalStates = 0;
-	std::size_t statesWithAllPresents = 0;
-	for (auto itO = knownPositions.cbegin(); itO != knownPositions.cend(); ++itO) {
-		Trie<PRESENT_COUNT> const& trie = *itO;
-		++totalStates;
-		if (trie.hasValueOrSubsetThereof(allZeroBitset)) {
-			++statesWithAllPresents;
+	if constexpr(PRESENT_COUNT > 0) {
+		auto const allZeroBitset = std::bitset<PRESENT_COUNT>();
+		std::size_t totalStates = 0;
+		std::size_t statesWithAllPresents = 0;
+		for (auto itO = knownPositions.cbegin(); itO != knownPositions.cend(); ++itO) {
+			Trie<PRESENT_COUNT> const& trie = *itO;
+			++totalStates;
+			if (trie.hasValueOrSubsetThereof(allZeroBitset)) {
+				++statesWithAllPresents;
+			}
 		}
+		std::cout << "We have " << statesWithAllPresents << " of " << totalStates << " states visited with all presents taken." << std::endl;
 	}
-	std::cout << "We have " << statesWithAllPresents << " of " << totalStates << " states visited with all presents taken." << std::endl;
 }
 
 template<std::size_t NUM_ROWS, std::size_t NUM_COLS, std::size_t PRESENT_COUNT>
 inline void updateStack(std::vector<Trie<PRESENT_COUNT>>& knownPositions, std::queue<QueueObject<PRESENT_COUNT>>& penguinPositions, QueueObject<PRESENT_COUNT> const& p, PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> const& localOverlay, std::size_t const& newPos, bool isFinalState, char direction) {
-	static auto const allZeroBitset = std::bitset<PRESENT_COUNT>();
+	auto constexpr allZeroBitset = std::bitset<PRESENT_COUNT>();
 	if (!knownPositions[newPos].hasValueOrSubsetThereof(localOverlay.getRepresentation())) {
 		knownPositions[newPos].insertValue(localOverlay.getRepresentation());
 		penguinPositions.push(p.moveTo(newPos, localOverlay.getRepresentation(), direction));
 
-		bool const isFinalStateInsert = localOverlay.getRepresentation().count() == 0;
+		bool const isFinalStateInsert = constexpr(PRESENT_COUNT > 0) && localOverlay.getRepresentation().count() == 0;
 		if (isFinalStateInsert) {
 			std::cout << "We arrived at X = " << getX<NUM_COLS>(newPos) << " and Y = " << getY<NUM_COLS>(newPos) << " with all presents found!" << std::endl;
 		}
@@ -53,7 +55,7 @@ inline void updateStack(std::vector<Trie<PRESENT_COUNT>>& knownPositions, std::q
 }
 
 template<std::size_t NUM_ROWS, std::size_t NUM_COLS, bool IS_TORUS, std::size_t PRESENT_COUNT>
-std::size_t play(std::array<std::string, NUM_ROWS> const& fieldString, std::vector<std::pair<std::size_t, std::size_t>> const& holeConnections, std::string const& stateFilename = "") {
+std::size_t play(std::array<std::string, NUM_ROWS> const& fieldString, std::vector<std::pair<std::size_t, std::size_t>> const& holeConnections, bool deleteOldBackups, std::string const& stateFilename = "") {
 	auto const init = Board<NUM_ROWS, NUM_COLS, IS_TORUS, PRESENT_COUNT>::fromFieldString(fieldString, holeConnections);
 	Board<NUM_ROWS, NUM_COLS, IS_TORUS, PRESENT_COUNT> board = init.first;
 	PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> presentOverlay = init.second;
@@ -74,7 +76,6 @@ std::size_t play(std::array<std::string, NUM_ROWS> const& fieldString, std::vect
 	std::size_t const everyNthTarget = 250;
 	std::size_t const everyNthTargetBackup = 100000;
 	std::size_t targetCounter = 1;
-	std::size_t howOftenZeroCountdown = 16;
 	std::string lastBackupFilename = "";
 	std::size_t roundCounter = 0;
 
@@ -89,34 +90,6 @@ std::size_t play(std::array<std::string, NUM_ROWS> const& fieldString, std::vect
 		auto const endBackupLoad = std::chrono::steady_clock::now();
 		std::cout << "Loaded state backup at #" << targetCounter << " in " << std::chrono::duration_cast<std::chrono::milliseconds>(endBackupLoad - beginBackupLoad).count() << " ms, stack has " << penguinPositions.size() << " elements." << std::endl;
 		lastBackupFilename = stateFilename;
-
-		// Do some tests
-		QueueObject<PRESENT_COUNT> const& p = penguinPositions.front();
-		PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> localOverlay(presentOverlay.getBase(), p.getPresentState());
-		if (board.getPieceAt(p.getPos()) == BoardPiece::TARGET) {
-			std::cout << "Recovered top element has " << localOverlay.getPresentsLeft() << " present(s) left with moves '" << p.getMoves() << "'." << std::endl;
-			auto const bitset = p.getPresentState();
-			for (std::size_t i = 0; i < PRESENT_COUNT; ++i) {
-				if (bitset[i]) {
-					std::cout << "Present at position " << i << " is missing." << std::endl;
-					auto const inverse = ~bitset; // All ones, just present X is taken
-					std::size_t totalStates = 0;
-					std::size_t statesWithPresent8 = 0;
-					for (auto itO = knownPositions.cbegin(); itO != knownPositions.cend(); ++itO) {
-						Trie<PRESENT_COUNT> const& trie = *itO;
-						++totalStates;
-						if (trie.hasValueOrSubsetThereof(inverse)) {
-							++statesWithPresent8;
-						}
-					}
-					std::cout << "Present at position " << i << " has been seen taken at " << statesWithPresent8 << " of " << totalStates << " states." << std::endl;
-				}
-			}
-		} else {
-			std::cout << "Recovered top element is NOT a target state and has " << localOverlay.getPresentsLeft() << " present(s) left with moves '" << p.getMoves() << "'." << std::endl;
-		}
-
-		checkForFinalStates(knownPositions);
 	} else {
 		for (std::size_t i = 0; i < NUM_ROWS * NUM_COLS; ++i) {
 			knownPositions.push_back(Trie<PRESENT_COUNT>());
@@ -130,7 +103,7 @@ std::size_t play(std::array<std::string, NUM_ROWS> const& fieldString, std::vect
 	while (!penguinPositions.empty()) {
 		++roundCounter;
 		QueueObject<PRESENT_COUNT> const& p = penguinPositions.front();
-		bool const isFinalState = p.getPresentState().count() == 0;
+		bool const isFinalState = constexpr(PRESENT_COUNT > 0) && (p.getPresentState().count() == 0);
 		if (isFinalState) {
 			std::cout << "Found a state at X = " << getX<NUM_COLS>(p.getPos()) << " and Y = " << getY<NUM_COLS>(p.getPos()) << " with all presents taken: " << p.getMoves() << std::endl;
 		}
@@ -154,7 +127,7 @@ std::size_t play(std::array<std::string, NUM_ROWS> const& fieldString, std::vect
 				std::cout << std::setprecision(6) << speedTarget << " us/T, " << std::setprecision(6) << speedRound << " us/R" << std::endl;
 			}
 			if (isNewRecord || (targetCounter % everyNthTargetBackup == 0)) {
-				std::string const backupFilename = "state_" + std::to_string(targetCounter) + ".lz4.bin";
+				std::string const backupFilename = "state_" + std::to_string(targetCounter) + "_" + std::to_string(NUM_ROWS) + "_" + std::to_string(NUM_COLS) + "_" + std::to_string(IS_TORUS) + "_" + std::to_string(PRESENT_COUNT) + ".lz4.bin";
 				// In case we just restored from this backup
 				if (!ends_with(lastBackupFilename, backupFilename)) {
 					auto const beginBackup = std::chrono::steady_clock::now();
@@ -164,12 +137,12 @@ std::size_t play(std::array<std::string, NUM_ROWS> const& fieldString, std::vect
 					archive(currentMinPresentsLeft, currentMinPresentsLeftMoves, targetCounter, roundCounter, penguinPositions, knownPositions);
 					auto const endBackup = std::chrono::steady_clock::now();
 					std::cout << "Made a state backup at #" << targetCounter << " in " << std::chrono::duration_cast<std::chrono::milliseconds>(endBackup - beginBackup).count() << " ms." << std::endl;
-					if (!lastBackupFilename.empty()) {
-						/*if (std::filesystem::remove(lastBackupFilename)) {
+					if (deleteOldBackups && !lastBackupFilename.empty()) {
+						if (std::filesystem::remove(lastBackupFilename)) {
 							std::cout << "Deleted last backup '" << lastBackupFilename << "'." << std::endl;
 						} else {
 							std::cerr << "Failed to delete last backup '" << lastBackupFilename << "'!" << std::endl;
-						}*/
+						}
 					}
 					lastBackupFilename = backupFilename;
 				}
@@ -178,13 +151,8 @@ std::size_t play(std::array<std::string, NUM_ROWS> const& fieldString, std::vect
 			++targetCounter;
 			
 			if (localOverlay.getPresentsLeft() == 0) {
-				--howOftenZeroCountdown;
-				if (howOftenZeroCountdown == 0) {
-					std::cout << "Terminating search, found a solution collecting all presents: " << p.getMoves() << std::endl;
-					return roundCounter;
-				}
-				penguinPositions.pop();
-				continue;
+				std::cout << "Terminating search, found a solution collecting all presents: " << p.getMoves() << std::endl;
+				return roundCounter;
 			} else {
 				penguinPositions.pop();
 				continue;

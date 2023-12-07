@@ -144,26 +144,76 @@ static const std::vector<std::pair<std::size_t, std::size_t>> holeConnectionsChr
 	{171, 399}
 };
 
-int main(int argc, char* argv[]) {
-	std::cout << "c't, Puzzle 19/2023" << std::endl;
-	auto const beginTotal = std::chrono::steady_clock::now();
+enum class PlayMode {
+	MODE_CLASSIC,
+	MODE_CHRISTMAS
+};
 
-	std::size_t combinations = 0;
+void printHelp() {
+	std::cerr << "Options:" << std::endl;
+	std::cerr << "--classic: Play the game as presented in 19/2023." << std::endl;
+	std::cerr << "--christmas: Play the game as presented in 28/2023." << std::endl;
+	std::cerr << "--play [TURNS STRING]: Play the given turns in the selected game mode." << std::endl;
+	std::cerr << "--fromBackup [FILENAME]: Loads the given file as a state backup and resumes operation from there." << std::endl;
+	std::cerr << "--deleteOldBackups: Whether to delete the preceeding state backup file when a new one has been written. Useful for keeping disk usage in check." << std::endl;
+}
+
+int main(int argc, char* argv[]) {
+	std::cout << "c't, Puzzle 19/2023 + 28/2023" << std::endl;
+	
+	PlayMode playMode = PlayMode::MODE_CLASSIC;
+	std::string turnsToPlay;
+	std::string backupName;
+	bool deleteOldBackups = false;
+
 	if (argc > 1) {
-		if (std::filesystem::exists(argv[1])) {
-			std::cout << "Loading backup '" << argv[1] << "'..." << std::endl;
-			combinations = play<40, 40, true, 24>(fieldStringChristmas, holeConnectionsChristmas, argv[1]);
-		} else {
-			combinations = playString<40, 40, true, 24>(fieldStringChristmas, holeConnectionsChristmas, argv[1]);
+		for (std::size_t i = 1; i < argc; ++i) {
+			bool const hasOneMore = ((i + 1) < argc);
+			std::string const arg = argv[i];
+			if (arg.compare("--classic") == 0) {
+				playMode = PlayMode::MODE_CLASSIC;
+			} else if (arg.compare("--christmas") == 0) {
+				playMode = PlayMode::MODE_CHRISTMAS;
+			} else if (arg.compare("--play") == 0) {
+				if (!hasOneMore) {
+					std::cerr << "The option '--play' expects the turns to be given, e.g. '--play ULDRULDR'!" << std::endl;
+					return -1;
+				}
+				++i;
+				turnsToPlay = argv[i];
+			} else if (arg.compare("--fromBackup") == 0) {
+				if (!hasOneMore) {
+					std::cerr << "The option '--fromBackup' expects the filename to be given, e.g. '--fromBackup state_012345.lz4.bin'!" << std::endl;
+					return -1;
+				}
+				++i;
+				backupName = argv[i];
+			} else if (arg.compare("--deleteOldBackups") == 0) {
+				deleteOldBackups = true;
+			} else {
+				std::cerr << "Sorry, could not parse option '" << arg << "'!" << std::endl;
+				printHelp();
+				return -1;
+			}
 		}
 	} else {
-		if (false) {
-			combinations = play<20, 20, false, 1>(fieldStringBasic, holeConnectionsBasic);
+		printHelp();
+		return 0;
+	}
+
+	auto const beginTotal = std::chrono::steady_clock::now();
+	std::size_t combinations = 0;
+	if (playMode == PlayMode::MODE_CLASSIC) {
+		if (turnsToPlay.empty()) {
+			combinations = play<20, 20, false, 0>(fieldStringBasic, holeConnectionsBasic, deleteOldBackups, backupName);
 		} else {
-			//combinations = play<40, 40, true, 24>(fieldStringChristmas, holeConnectionsChristmas, "U:\\state_1000000.lz4.bin");
-			//combinations = play<40, 40, true, 24>(fieldStringChristmas, holeConnectionsChristmas, "U:\\state_1530595.lz4.bin");
-			//combinations = play<40, 40, true, 24>(fieldStringChristmas, holeConnectionsChristmas, "U:\\state_1500000.lz4.bin");
-			combinations = play<40, 40, true, 24>(fieldStringChristmas, holeConnectionsChristmas);
+			combinations = playString<20, 20, false, 0>(fieldStringBasic, holeConnectionsBasic, turnsToPlay);
+		}
+	} else {
+		if (turnsToPlay.empty()) {
+			combinations = play<40, 40, true, 24>(fieldStringChristmas, holeConnectionsChristmas, deleteOldBackups, backupName);
+		} else {
+			combinations = playString<40, 40, true, 24>(fieldStringChristmas, holeConnectionsChristmas, turnsToPlay);
 		}
 	}
 

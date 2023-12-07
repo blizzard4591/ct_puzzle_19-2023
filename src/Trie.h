@@ -30,11 +30,11 @@ public:
 	}
 
 	bool hasValueOrSubsetThereof(std::bitset<BIT_COUNT> const& value) const {
-		if (BIT_COUNT == 0) {
-			return true;
-		}
 		if (m_nodes.size() == 0) {
 			return false;
+		}
+		if constexpr(BIT_COUNT == 0) {
+			return true;
 		}
 
 		return checkNodeHasValueOrSubsetThereof(0, value, 0);
@@ -43,6 +43,9 @@ public:
 	void insertValue(std::bitset<BIT_COUNT> const& value) {
 		if (m_nodes.size() == 0) {
 			makeNode();
+		}
+		if constexpr(BIT_COUNT == 0) {
+			return;
 		}
 
 		std::int64_t nodeIndex = 0;
