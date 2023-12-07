@@ -55,7 +55,7 @@ inline void updateStack(std::vector<Trie<PRESENT_COUNT>>& knownPositions, std::q
 }
 
 template<std::size_t NUM_ROWS, std::size_t NUM_COLS, bool IS_TORUS, std::size_t PRESENT_COUNT>
-std::size_t play(std::array<std::string, NUM_ROWS> const& fieldString, std::vector<std::pair<std::size_t, std::size_t>> const& holeConnections, bool deleteOldBackups, std::string const& stateFilename = "") {
+std::size_t play(std::array<std::string, NUM_ROWS> const& fieldString, std::vector<std::pair<std::size_t, std::size_t>> const& holeConnections, bool deleteOldBackups, bool noBackups, std::string const& stateFilename = "") {
 	auto const init = Board<NUM_ROWS, NUM_COLS, IS_TORUS, PRESENT_COUNT>::fromFieldString(fieldString, holeConnections);
 	Board<NUM_ROWS, NUM_COLS, IS_TORUS, PRESENT_COUNT> board = init.first;
 	PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> presentOverlay = init.second;
@@ -126,7 +126,7 @@ std::size_t play(std::array<std::string, NUM_ROWS> const& fieldString, std::vect
 				std::cout << "Found target #" << targetCounter << " with " << localOverlay.getPresentsLeft() << "/" << localOverlay.getBase().getTotalPresentCount() << " presents left using moves '" << p.getMoves() << "' - current best is " << currentMinPresentsLeft << " with moves '" << currentMinPresentsLeftMoves << "', stack has " << penguinPositions.size() << " entries. ";
 				std::cout << std::setprecision(6) << speedTarget << " us/T, " << std::setprecision(6) << speedRound << " us/R" << std::endl;
 			}
-			if (isNewRecord || (targetCounter % everyNthTargetBackup == 0)) {
+			if ((!noBackups) && (isNewRecord || (targetCounter % everyNthTargetBackup == 0))) {
 				std::string const backupFilename = "state_" + std::to_string(targetCounter) + "_" + std::to_string(NUM_ROWS) + "_" + std::to_string(NUM_COLS) + "_" + std::to_string(IS_TORUS) + "_" + std::to_string(PRESENT_COUNT) + ".lz4.bin";
 				// In case we just restored from this backup
 				if (!ends_with(lastBackupFilename, backupFilename)) {

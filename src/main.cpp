@@ -155,6 +155,7 @@ void printHelp() {
 	std::cerr << "--christmas: Play the game as presented in 28/2023." << std::endl;
 	std::cerr << "--play [TURNS STRING]: Play the given turns in the selected game mode." << std::endl;
 	std::cerr << "--fromBackup [FILENAME]: Loads the given file as a state backup and resumes operation from there." << std::endl;
+	std::cerr << "--noBackups: Disable creation of state backups. Useful for keeping disk usage in check." << std::endl;
 	std::cerr << "--deleteOldBackups: Whether to delete the preceeding state backup file when a new one has been written. Useful for keeping disk usage in check." << std::endl;
 }
 
@@ -165,6 +166,7 @@ int main(int argc, char* argv[]) {
 	std::string turnsToPlay;
 	std::string backupName;
 	bool deleteOldBackups = false;
+	bool noBackups = false;
 
 	if (argc > 1) {
 		for (std::size_t i = 1; i < argc; ++i) {
@@ -190,6 +192,8 @@ int main(int argc, char* argv[]) {
 				backupName = argv[i];
 			} else if (arg.compare("--deleteOldBackups") == 0) {
 				deleteOldBackups = true;
+			} else if (arg.compare("--noBackups") == 0) {
+				noBackups = true;
 			} else {
 				std::cerr << "Sorry, could not parse option '" << arg << "'!" << std::endl;
 				printHelp();
@@ -205,13 +209,13 @@ int main(int argc, char* argv[]) {
 	std::size_t combinations = 0;
 	if (playMode == PlayMode::MODE_CLASSIC) {
 		if (turnsToPlay.empty()) {
-			combinations = play<20, 20, false, 0>(fieldStringBasic, holeConnectionsBasic, deleteOldBackups, backupName);
+			combinations = play<20, 20, false, 0>(fieldStringBasic, holeConnectionsBasic, deleteOldBackups, noBackups, backupName);
 		} else {
 			combinations = playString<20, 20, false, 0>(fieldStringBasic, holeConnectionsBasic, turnsToPlay);
 		}
 	} else {
 		if (turnsToPlay.empty()) {
-			combinations = play<40, 40, true, 24>(fieldStringChristmas, holeConnectionsChristmas, deleteOldBackups, backupName);
+			combinations = play<40, 40, true, 24>(fieldStringChristmas, holeConnectionsChristmas, deleteOldBackups, noBackups, backupName);
 		} else {
 			combinations = playString<40, 40, true, 24>(fieldStringChristmas, holeConnectionsChristmas, turnsToPlay);
 		}
