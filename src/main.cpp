@@ -50,51 +50,6 @@ static const std::vector<std::pair<std::size_t, std::size_t>> holeConnectionsBas
 	{202, 58}
 };
 
-//#define TEST_TWO_PRESENTS
-#ifdef TEST_TWO_PRESENTS
-static const std::array<std::string, 40> fieldStringChristmas = {
-	"TT T#T   #T#T#T#T #   T #T#  #TT  #T   #",
-	"T     #                                T",
-	"T          T TT  TT##T#TT   T  T  T  T  ",
-	"   T     T   T  T         T             ",
-	"#T     T   O   T TT##TTTT   TT T        ",
-	"    T                           T   T   ",
-	"#                TT#TTTTT              T",
-	"     T  T    TT                   T     ",
-	" T          T    T#TT#T#T  T#          #",
-	"        T    T T         #      T      O",
-	"# T     #    T   T##TTTT# T T      T#T  ",
-	"    T T                        #       #",
-	"#          TT    T##T#TTT T   T    T T #",
-	"     TTT   T   T             #   T   T T",
-	"T  #         T  #T###TT#T T TT          ",
-	"   ## T   T     T        T T        T T#",
-	"  #T        #  T#T##TT#T#  T T    T     ",
-	"T T  T T T  #                # TT T    #",
-	"     T   #   T   TT#TTTTT T# T       T  ",
-	"T  T       #  #                 T   TTT ",
-	"   T  T      T  #T##TTT## T  T#     T   ",
-	"#   T    T    T T        TTT  T TT     T",
-	" T  #T    T    T TT#TT### T  T        T ",
-	"# T T#    T #T            TT   T T T    ",
-	"#        T       T###T#TT            T  ",
-	"   T T        T        #  T     T    TT ",
-	"T T T  ##   T T  T  T  T T    T  T T    ",
-	"   TT  T      T T  # T T   TT        T T",
-	"      #TT  T                T    #     T",
-	"  T        TTT T T T  T#T           T  T",
-	"T  T    T      T             T T      TT",
-	"#T   T        T  T TT # TT  TT  #      #",
-	"#   T    ##        TT    #  #  T# T     ",
-	" T     T     T TT TT#T      T   T       ",
-	" # T              T T   T  #T T #  TT T#",
-	"T  T      T T #    T  T                T",
-	"T      TT       #        # #  T       TT",
-	"# T         T      T          # T  T   #",
-	"T  O           T     T     T    T      X",
-	" T #   # T    #T# #  ##   T  T  P # #TTT"
-};
-#else
 static const std::array<std::string, 40> fieldStringChristmas = {
 	"TT T#T   #T#T#T#T #   T #T#  #TT  #T$  #",
 	"T     #     $                          T",
@@ -137,7 +92,7 @@ static const std::array<std::string, 40> fieldStringChristmas = {
 	"T$ O           T     T     T    T      X",
 	" T #   # T    #T# #  ##   T  T  $ # #TTT"
 };
-#endif
+
 static const std::vector<std::pair<std::size_t, std::size_t>> holeConnectionsChristmas = {
 	{399, 1523},
 	{1523, 171},
