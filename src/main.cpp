@@ -149,6 +149,9 @@ int main(int argc, char* argv[]) {
 				deleteOldBackups = true;
 			} else if (arg.compare("--noBackups") == 0) {
 				noBackups = true;
+			} else if (arg.compare("--help") == 0) {
+				printHelp();
+				return 0;
 			} else {
 				std::cerr << "Sorry, could not parse option '" << arg << "'!" << std::endl;
 				printHelp();
@@ -158,6 +161,16 @@ int main(int argc, char* argv[]) {
 	} else {
 		printHelp();
 		return 0;
+	}
+
+	std::cout << "Playing in mode: " << ((playMode == PlayMode::MODE_CLASSIC) ? "Classic" : "Christmas") << std::endl;
+	std::cout << "Make backups: " << ((noBackups) ? "no" : "yes") << std::endl;
+	std::cout << "Delete old backups: " << ((deleteOldBackups) ? "yes" : "no") << std::endl;
+	if (turnsToPlay.empty()) {
+		std::cout << "Performing search." << std::endl;
+		std::cout << "Restarting from backup: " << ((backupName.empty()) ? "no" : "yes") << std::endl;
+	} else {
+		std::cout << "Playing given moves." << std::endl;
 	}
 
 	auto const beginTotal = std::chrono::steady_clock::now();
