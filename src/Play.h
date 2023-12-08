@@ -144,25 +144,25 @@ std::size_t play(std::array<std::string, NUM_ROWS> const& fieldString, std::vect
 			}
 		}
 
-		if (board.canMoveInDir<Direction::UP>(p.getPos(), target)) {
+		if (board.template canMoveInDir<Direction::UP>(p.getPos(), target)) {
 			PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> localOverlay(presentOverlay.getBase(), p.getPresentState());
-			newPos = board.moveInDir<Direction::UP>(p.getPos(), localOverlay);
+			newPos = board.template moveInDir<Direction::UP>(p.getPos(), localOverlay);
 
 			updateStack(knownPositions, penguinPositions, p, localOverlay, newPos, 'U');
 		}
-		if (board.canMoveInDir<Direction::DOWN>(p.getPos(), target)) {
+		if (board.template canMoveInDir<Direction::DOWN>(p.getPos(), target)) {
 			PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> localOverlay(presentOverlay.getBase(), p.getPresentState());
-			newPos = board.moveInDir<Direction::DOWN>(p.getPos(), localOverlay);
+			newPos = board.template moveInDir<Direction::DOWN>(p.getPos(), localOverlay);
 			updateStack(knownPositions, penguinPositions, p, localOverlay, newPos, 'D');
 		}
-		if (board.canMoveInDir<Direction::LEFT>(p.getPos(), target)) {
+		if (board.template canMoveInDir<Direction::LEFT>(p.getPos(), target)) {
 			PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> localOverlay(presentOverlay.getBase(), p.getPresentState());
-			newPos = board.moveInDir<Direction::LEFT>(p.getPos(), localOverlay);
+			newPos = board.template moveInDir<Direction::LEFT>(p.getPos(), localOverlay);
 			updateStack(knownPositions, penguinPositions, p, localOverlay, newPos, 'L');
 		}
-		if (board.canMoveInDir<Direction::RIGHT>(p.getPos(), target)) {
+		if (board.template canMoveInDir<Direction::RIGHT>(p.getPos(), target)) {
 			PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> localOverlay(presentOverlay.getBase(), p.getPresentState());
-			newPos = board.moveInDir<Direction::RIGHT>(p.getPos(), localOverlay);
+			newPos = board.template moveInDir<Direction::RIGHT>(p.getPos(), localOverlay);
 			updateStack(knownPositions, penguinPositions, p, localOverlay, newPos, 'R');
 		}
 

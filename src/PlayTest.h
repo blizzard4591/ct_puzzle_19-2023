@@ -43,32 +43,32 @@ std::size_t playString(std::array<std::string, NUM_ROWS> const& fieldString, std
 		char const move = moves.at(i);
 		switch (move) {
 			case 'U':
-				if (board.canMoveInDir<Direction::UP>(pos, target)) {
-					pos = board.moveInDir<Direction::UP>(pos, presentOverlay);
+				if (board.template canMoveInDir<Direction::UP>(pos, target)) {
+					pos = board.template moveInDir<Direction::UP>(pos, presentOverlay);
 					std::cout << "Moved U to position X = " << std::setw(2) << std::setfill(' ') << getX<NUM_COLS>(pos) << ", Y = " << std::setw(2) << std::setfill(' ') << getY<NUM_COLS>(pos) << "." << std::endl;
 				} else {
 					std::cout << "Failed to move U in position X = " << std::setw(2) << std::setfill(' ') << getX<NUM_COLS>(pos) << ", Y = " << std::setw(2) << std::setfill(' ') << getY<NUM_COLS>(pos) << "." << std::endl;
 				}
 				break;
 			case 'D':
-				if (board.canMoveInDir<Direction::DOWN>(pos, target)) {
-					pos = board.moveInDir<Direction::DOWN>(pos, presentOverlay);
+				if (board.template canMoveInDir<Direction::DOWN>(pos, target)) {
+					pos = board.template moveInDir<Direction::DOWN>(pos, presentOverlay);
 					std::cout << "Moved D to position X = " << std::setw(2) << std::setfill(' ') << getX<NUM_COLS>(pos) << ", Y = " << std::setw(2) << std::setfill(' ') << getY<NUM_COLS>(pos) << "." << std::endl;
 				} else {
 					std::cout << "Failed to move D in position X = " << std::setw(2) << std::setfill(' ') << getX<NUM_COLS>(pos) << ", Y = " << std::setw(2) << std::setfill(' ') << getY<NUM_COLS>(pos) << "." << std::endl;
 				}
 				break;
 			case 'L':
-				if (board.canMoveInDir<Direction::LEFT>(pos, target)) {
-					pos = board.moveInDir<Direction::LEFT>(pos, presentOverlay);
+				if (board.template canMoveInDir<Direction::LEFT>(pos, target)) {
+					pos = board.template moveInDir<Direction::LEFT>(pos, presentOverlay);
 					std::cout << "Moved L to position X = " << std::setw(2) << std::setfill(' ') << getX<NUM_COLS>(pos) << ", Y = " << std::setw(2) << std::setfill(' ') << getY<NUM_COLS>(pos) << "." << std::endl;
 				} else {
 					std::cout << "Failed to move L in position X = " << std::setw(2) << std::setfill(' ') << getX<NUM_COLS>(pos) << ", Y = " << std::setw(2) << std::setfill(' ') << getY<NUM_COLS>(pos) << "." << std::endl;
 				}
 				break;
 			case 'R':
-				if (board.canMoveInDir<Direction::RIGHT>(pos, target)) {
-					pos = board.moveInDir<Direction::RIGHT>(pos, presentOverlay);
+				if (board.template canMoveInDir<Direction::RIGHT>(pos, target)) {
+					pos = board.template moveInDir<Direction::RIGHT>(pos, presentOverlay);
 					std::cout << "Moved R to position X = " << std::setw(2) << std::setfill(' ') << getX<NUM_COLS>(pos) << ", Y = " << std::setw(2) << std::setfill(' ') << getY<NUM_COLS>(pos) << "." << std::endl;
 				} else {
 					std::cout << "Failed to move R in position X = " << std::setw(2) << std::setfill(' ') << getX<NUM_COLS>(pos) << ", Y = " << std::setw(2) << std::setfill(' ') << getY<NUM_COLS>(pos) << "." << std::endl;
