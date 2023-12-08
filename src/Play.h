@@ -37,20 +37,9 @@ void checkForFinalStates(std::vector<Trie<PRESENT_COUNT>> const& knownPositions)
 
 template<std::size_t NUM_ROWS, std::size_t NUM_COLS, std::size_t PRESENT_COUNT>
 inline void updateStack(std::vector<Trie<PRESENT_COUNT>>& knownPositions, std::queue<QueueObject<PRESENT_COUNT>>& penguinPositions, QueueObject<PRESENT_COUNT> const& p, PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> const& localOverlay, std::size_t const& newPos, bool isFinalState, char direction) {
-	auto constexpr allZeroBitset = std::bitset<PRESENT_COUNT>();
 	if (!knownPositions[newPos].hasValueOrSubsetThereof(localOverlay.getRepresentation())) {
 		knownPositions[newPos].insertValue(localOverlay.getRepresentation());
 		penguinPositions.push(p.moveTo(newPos, localOverlay.getRepresentation(), direction));
-
-		bool const isFinalStateInsert = constexpr(PRESENT_COUNT > 0) && localOverlay.getRepresentation().count() == 0;
-		if (isFinalStateInsert) {
-			std::cout << "We arrived at X = " << getX<NUM_COLS>(newPos) << " and Y = " << getY<NUM_COLS>(newPos) << " with all presents found!" << std::endl;
-		}
-		if (isFinalState) {
-			std::cout << "Can move " << direction << " and position X = " << getX<NUM_COLS>(newPos) << " and Y = " << getY<NUM_COLS>(newPos) << " not known." << std::endl;
-		}
-	} else if (isFinalState) {
-		std::cout << "Can move " << direction << " and position X = " << getX<NUM_COLS>(newPos) << " and Y = " << getY<NUM_COLS>(newPos) << " IS known." << std::endl;
 	}
 }
 
@@ -103,7 +92,7 @@ std::size_t play(std::array<std::string, NUM_ROWS> const& fieldString, std::vect
 	while (!penguinPositions.empty()) {
 		++roundCounter;
 		QueueObject<PRESENT_COUNT> const& p = penguinPositions.front();
-		bool const isFinalState = constexpr(PRESENT_COUNT > 0) && (p.getPresentState().count() == 0);
+		bool const isFinalState = (PRESENT_COUNT > 0) && (p.getPresentState().count() == 0);
 		if (isFinalState) {
 			std::cout << "Found a state at X = " << getX<NUM_COLS>(p.getPos()) << " and Y = " << getY<NUM_COLS>(p.getPos()) << " with all presents taken: " << p.getMoves() << std::endl;
 		}
