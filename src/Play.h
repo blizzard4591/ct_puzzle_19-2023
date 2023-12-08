@@ -36,7 +36,7 @@ void checkForFinalStates(std::vector<Trie<PRESENT_COUNT>> const& knownPositions)
 }
 
 template<std::size_t NUM_ROWS, std::size_t NUM_COLS, std::size_t PRESENT_COUNT>
-inline void updateStack(std::vector<Trie<PRESENT_COUNT>>& knownPositions, std::queue<QueueObject<PRESENT_COUNT>>& penguinPositions, QueueObject<PRESENT_COUNT> const& p, PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> const& localOverlay, std::size_t const& newPos, bool isFinalState, char direction) {
+inline void updateStack(std::vector<Trie<PRESENT_COUNT>>& knownPositions, std::queue<QueueObject<PRESENT_COUNT>>& penguinPositions, QueueObject<PRESENT_COUNT> const& p, PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> const& localOverlay, std::size_t const& newPos, char direction) {
 	if (!knownPositions[newPos].hasValueOrSubsetThereof(localOverlay.getRepresentation())) {
 		knownPositions[newPos].insertValue(localOverlay.getRepresentation());
 		penguinPositions.push(p.moveTo(newPos, localOverlay.getRepresentation(), direction));
@@ -92,11 +92,7 @@ std::size_t play(std::array<std::string, NUM_ROWS> const& fieldString, std::vect
 	while (!penguinPositions.empty()) {
 		++roundCounter;
 		QueueObject<PRESENT_COUNT> const& p = penguinPositions.front();
-		bool const isFinalState = (PRESENT_COUNT > 0) && (p.getPresentState().count() == 0);
-		if (isFinalState) {
-			std::cout << "Found a state at X = " << getX<NUM_COLS>(p.getPos()) << " and Y = " << getY<NUM_COLS>(p.getPos()) << " with all presents taken: " << p.getMoves() << std::endl;
-		}
-
+		
 		if (board.getPieceAt(p.getPos()) == BoardPiece::TARGET) {
 			PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> localOverlay(presentOverlay.getBase(), p.getPresentState());
 			bool isNewRecord = false;
@@ -112,7 +108,7 @@ std::size_t play(std::array<std::string, NUM_ROWS> const& fieldString, std::vect
 				double const speedTarget = static_cast<double>(us) / static_cast<double>(targetCounter);
 				double const speedRound = static_cast<double>(us) / static_cast<double>(roundCounter);
 
-				std::cout << "Found target #" << targetCounter << " with " << localOverlay.getPresentsLeft() << "/" << localOverlay.getBase().getTotalPresentCount() << " presents left using moves '" << p.getMoves() << "' - current best is " << currentMinPresentsLeft << " with moves '" << currentMinPresentsLeftMoves << "', stack has " << penguinPositions.size() << " entries. ";
+				std::cout << "Found target #" << targetCounter << " with " << localOverlay.getPresentsLeft() << "/" << localOverlay.getBase().getTotalPresentCount() << " presents left using moves '" << p.getMoves() << "' - current best is " << currentMinPresentsLeft << "/" << localOverlay.getBase().getTotalPresentCount() << " with moves '" << currentMinPresentsLeftMoves << "', stack has " << penguinPositions.size() << " entries. ";
 				std::cout << std::setprecision(6) << speedTarget << " us/T, " << std::setprecision(6) << speedRound << " us/R" << std::endl;
 			}
 			if ((!noBackups) && (isNewRecord || (targetCounter % everyNthTargetBackup == 0))) {
@@ -152,22 +148,22 @@ std::size_t play(std::array<std::string, NUM_ROWS> const& fieldString, std::vect
 			PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> localOverlay(presentOverlay.getBase(), p.getPresentState());
 			newPos = board.moveUp(p.getPos(), localOverlay);
 
-			updateStack(knownPositions, penguinPositions, p, localOverlay, newPos, isFinalState, 'U');
+			updateStack(knownPositions, penguinPositions, p, localOverlay, newPos, 'U');
 		}
 		if (board.canMoveDown(p.getPos(), target)) {
 			PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> localOverlay(presentOverlay.getBase(), p.getPresentState());
 			newPos = board.moveDown(p.getPos(), localOverlay);
-			updateStack(knownPositions, penguinPositions, p, localOverlay, newPos, isFinalState, 'D');
+			updateStack(knownPositions, penguinPositions, p, localOverlay, newPos, 'D');
 		}
 		if (board.canMoveLeft(p.getPos(), target)) {
 			PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> localOverlay(presentOverlay.getBase(), p.getPresentState());
 			newPos = board.moveLeft(p.getPos(), localOverlay);
-			updateStack(knownPositions, penguinPositions, p, localOverlay, newPos, isFinalState, 'L');
+			updateStack(knownPositions, penguinPositions, p, localOverlay, newPos, 'L');
 		}
 		if (board.canMoveRight(p.getPos(), target)) {
 			PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> localOverlay(presentOverlay.getBase(), p.getPresentState());
 			newPos = board.moveRight(p.getPos(), localOverlay);
-			updateStack(knownPositions, penguinPositions, p, localOverlay, newPos, isFinalState, 'R');
+			updateStack(knownPositions, penguinPositions, p, localOverlay, newPos, 'R');
 		}
 
 		penguinPositions.pop();
