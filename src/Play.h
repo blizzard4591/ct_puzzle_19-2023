@@ -144,25 +144,25 @@ std::size_t play(std::array<std::string, NUM_ROWS> const& fieldString, std::vect
 			}
 		}
 
-		if (board.canMoveUp(p.getPos(), target)) {
+		if (board.canMoveInDir<Direction::UP>(p.getPos(), target)) {
 			PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> localOverlay(presentOverlay.getBase(), p.getPresentState());
-			newPos = board.moveUp(p.getPos(), localOverlay);
+			newPos = board.moveInDir<Direction::UP>(p.getPos(), localOverlay);
 
 			updateStack(knownPositions, penguinPositions, p, localOverlay, newPos, 'U');
 		}
-		if (board.canMoveDown(p.getPos(), target)) {
+		if (board.canMoveInDir<Direction::DOWN>(p.getPos(), target)) {
 			PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> localOverlay(presentOverlay.getBase(), p.getPresentState());
-			newPos = board.moveDown(p.getPos(), localOverlay);
+			newPos = board.moveInDir<Direction::DOWN>(p.getPos(), localOverlay);
 			updateStack(knownPositions, penguinPositions, p, localOverlay, newPos, 'D');
 		}
-		if (board.canMoveLeft(p.getPos(), target)) {
+		if (board.canMoveInDir<Direction::LEFT>(p.getPos(), target)) {
 			PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> localOverlay(presentOverlay.getBase(), p.getPresentState());
-			newPos = board.moveLeft(p.getPos(), localOverlay);
+			newPos = board.moveInDir<Direction::LEFT>(p.getPos(), localOverlay);
 			updateStack(knownPositions, penguinPositions, p, localOverlay, newPos, 'L');
 		}
-		if (board.canMoveRight(p.getPos(), target)) {
+		if (board.canMoveInDir<Direction::RIGHT>(p.getPos(), target)) {
 			PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT> localOverlay(presentOverlay.getBase(), p.getPresentState());
-			newPos = board.moveRight(p.getPos(), localOverlay);
+			newPos = board.moveInDir<Direction::RIGHT>(p.getPos(), localOverlay);
 			updateStack(knownPositions, penguinPositions, p, localOverlay, newPos, 'R');
 		}
 
