@@ -17,11 +17,23 @@ template<std::size_t NUM_ROWS, std::size_t NUM_COLS, bool IS_TORUS, std::size_t 
 class Board {
 public:
 	Board(std::array<BoardPiece, (NUM_ROWS * NUM_COLS)> const& pieces, std::size_t const& penguinStartingPosition, std::vector<std::pair<std::size_t, std::size_t>> const& holeConnections)
-		: m_pieces(pieces), m_startingPosition(penguinStartingPosition), m_holeConnections(holeConnections) {
+		: m_pieces(pieces), m_startingPosition(penguinStartingPosition), m_holeConnections(translateHoleConnectionPairsToLookup(holeConnections)) {
 		//
 	}
 	~Board() {
 		//
+	}
+
+	static std::vector<std::size_t> translateHoleConnectionPairsToLookup(std::vector<std::pair<std::size_t, std::size_t>> const& holeConnections) {
+		std::vector<std::size_t> result;
+		result.resize(NUM_ROWS * NUM_COLS);
+		for (std::size_t i = 0; i < NUM_ROWS * NUM_COLS; ++i) {
+			result.at(i) = i;
+		}
+		for (auto it = holeConnections.cbegin(); it != holeConnections.cend(); ++it) {
+			result.at(it->first) = it->second;
+		}
+		return result;
 	}
 
 	static std::pair<Board<NUM_ROWS, NUM_COLS, IS_TORUS, PRESENT_COUNT>, PresentOverlay<NUM_ROWS, NUM_COLS, PRESENT_COUNT>> fromFieldString(std::array<std::string, NUM_ROWS> const& fieldString, std::vector<std::pair<std::size_t, std::size_t>> const& holeConnections) {
@@ -171,11 +183,13 @@ public:
 		return swapHoleIfOn(pos);
 	}
 private:
-	std::size_t swapHoleIfOn(std::size_t const& pos) const {
-		for (auto it = m_holeConnections.cbegin(); it != m_holeConnections.cend(); ++it) {
-			if (pos == it->first) return it->second;
+	inline std::size_t swapHoleIfOn(std::size_t const& pos) const {
+#ifdef _DEBUG
+		if (pos >= m_holeConnections.size()) {
+			throw;
 		}
-		return pos;
+#endif
+		return m_holeConnections.at(pos);
 	}
 
 	template <Direction dir>
@@ -197,7 +211,7 @@ private:
 
 	std::array<BoardPiece, NUM_ROWS* NUM_COLS> const m_pieces;
 	std::size_t const m_startingPosition;
-	std::vector<std::pair<std::size_t, std::size_t>> const m_holeConnections;
+	std::vector<std::size_t> const m_holeConnections;
 };
 
 #endif
