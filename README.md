@@ -2,7 +2,7 @@
 See [here](https://www.heise.de/select/ct/2023/28/2329707360694897070) and [here](https://github.com/607011/chilly) for more information on the game.
 
 This tool can find the shortest path to the exit (classic version) or collect all presents and find the shortest path (christmas version).
-Keep in mind that solving the christmas version takes about 42 Gigabytes of RAM.
+Keep in mind that solving the christmas version takes about 42 Gigabytes of RAM and roughly two days.
 You have been warned.
 
 ## License
